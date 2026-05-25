@@ -39,8 +39,9 @@ async function initData(): Promise<void> {
     // 设置
     useGlobalSettingStore().init(),
     useEditorSettingStore().init(),
+    // 等待连接列表加载完成，否则恢复上次连接时 urls 可能为空
+    useUrlStore().ready(),
   ]);
-  return Promise.resolve();
 }
 
 // 初始化数据
@@ -60,11 +61,13 @@ initData().then(() => {
   if (useGlobalSettingStore().getLastUrl) {
     const lastUrlId = getItemByDefault(LocalNameEnum.KEY_LAST_URL, 0);
     if (lastUrlId !== 0) {
-      useUrlStore().choose(lastUrlId);
-      // 选择链接
       Assert.isTrue(useUrlStore().choose(lastUrlId), "链接未找到");
-      // 索引刷新
-      useIndexStore().reset();
+      useIndexStore().reset().then(() => {
+        const lastIndex = getItemByDefault<string>(LocalNameEnum.KEY_LAST_INDEX, '');
+        if (lastIndex && useIndexStore().indexOptions.some(o => o.value === lastIndex)) {
+          useIndexStore().currentIndex = lastIndex;
+        }
+      });
     }
   }
 });

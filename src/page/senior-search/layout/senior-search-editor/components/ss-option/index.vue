@@ -1,48 +1,55 @@
 <template>
   <div class="option">
     <div>
-      <a-tooltip :content="allowEdit ? '更新' : '保存'" position="right">
-        <a-button type="text" :status="allowEdit ? 'danger' : 'success'" @click="saveHistory()">
+      <t-tooltip content="执行 (F9)" placement="right">
+        <t-button variant="text" theme="primary" shape="square" @click="emits('execute')">
           <template #icon>
-            <save-icon />
+            <play-circle-icon/>
           </template>
-        </a-button>
-      </a-tooltip>
-      <a-tooltip content="取消与历史记录的关联" v-if="allowEdit" position="right">
-        <a-button type="text" status="danger" @click="clearHistory()">
+        </t-button>
+      </t-tooltip>
+      <t-tooltip :content="allowEdit ? '更新' : '保存'" placement="right">
+        <t-button variant="text" :theme="allowEdit ? 'danger' : 'success'" shape="square" @click="saveHistory()">
           <template #icon>
-            <close-icon />
+            <save-icon/>
           </template>
-        </a-button>
-      </a-tooltip>
-      <a-tooltip content="格式化" position="right">
-        <a-button type="text" status="normal" @click="formatDocument()">
+        </t-button>
+      </t-tooltip>
+      <t-tooltip content="取消与历史记录的关联" v-if="allowEdit" placement="right">
+        <t-button variant="text" theme="danger" shape="square" @click="clearHistory()">
           <template #icon>
-            <code-icon />
+            <close-icon/>
           </template>
-        </a-button>
-      </a-tooltip>
-      <a-tooltip content="清空" position="right">
-        <a-button type="text" status="normal" @click="clearBody()">
+        </t-button>
+      </t-tooltip>
+      <t-tooltip content="格式化" placement="right">
+        <t-button variant="text" theme="default" shape="square" @click="formatDocument()">
+          <template #icon>
+            <code-icon/>
+          </template>
+        </t-button>
+      </t-tooltip>
+      <t-tooltip content="清空" placement="right">
+        <t-button variant="text" theme="default" shape="square" @click="clearBody()">
           <template #icon>
             <format-icon/>
           </template>
-        </a-button>
-      </a-tooltip>
-      <a-tooltip content="编辑器设置" position="right">
-        <a-button type="text" status="normal" @click="useSeniorSearchSetting()">
+        </t-button>
+      </t-tooltip>
+      <t-tooltip content="编辑器设置" placement="right">
+        <t-button variant="text" theme="default" shape="square" @click="useSeniorSearchSetting()">
           <template #icon>
-            <setting-icon />
+            <setting-icon/>
           </template>
-        </a-button>
-      </a-tooltip>
-      <a-tooltip content="帮助" position="right">
-        <a-button type="text" status="normal" @click="openHelp()">
+        </t-button>
+      </t-tooltip>
+      <t-tooltip content="帮助" placement="right">
+        <t-button variant="text" theme="default" shape="square" @click="openHelp()">
           <template #icon>
             <help-circle-icon/>
           </template>
-        </a-button>
-      </a-tooltip>
+        </t-button>
+      </t-tooltip>
     </div>
     <div>
       <slot name="footer"/>
@@ -57,7 +64,11 @@ import {
 } from "@/page/senior-search/layout/senior-search-editor/components/ss-option/SeniorSearchSetting";
 import {openUrl} from "@/utils/BrowserUtil";
 import {Constant} from "@/global/Constant";
-import {CloseIcon, CodeIcon, HelpCircleIcon, SaveIcon, SettingIcon} from "tdesign-icons-vue-next";
+import {
+  CloseIcon, CodeIcon, HelpCircleIcon, PlayCircleIcon, SaveIcon, SettingIcon
+} from "tdesign-icons-vue-next";
+
+const emits = defineEmits<{ execute: [] }>();
 
 const allowEdit = computed(() => useSeniorSearchStore().id !== 0);
 
@@ -76,7 +87,6 @@ const clearHistory = () => useSeniorSearchStore().clearHistory();
     justify-content: space-between;
     width: 32px;
     border-right: 1px solid var(--td-border-level-2-color);
-
   }
 }
 </style>

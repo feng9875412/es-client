@@ -11,12 +11,12 @@
       <ss-display-quick v-if="displayActive === 'quick'"/>
     </div>
     <div class="tabs">
-      <a-button type="text" @click="fullscreen = !fullscreen">
+      <t-button variant="text" shape="square" @click="fullscreen = !fullscreen">
         <template #icon>
           <fullscreen-exit-icon v-if="fullscreen"/>
           <fullscreen-icon v-else/>
         </template>
-      </a-button>
+      </t-button>
       <div class="tab" :class="displayActive === 'result' ? 'active' : ''" @click="displayActive = 'result'">
         结果
       </div>
@@ -65,7 +65,7 @@ useSeniorShowResultEvent.on(() => displayActive.value = 'result');
 </script>
 <style scoped lang="less">
 .senior-search-display {
-  height: calc(100vh - 118px);
+  height: 100%;
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 32px;

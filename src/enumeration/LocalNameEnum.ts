@@ -2,6 +2,8 @@ enum LocalNameEnum {
 
   KEY_LAST_URL = '/key/last-url',
 
+  KEY_LAST_INDEX = '/key/last-index',
+
   KEY_VERSION = '/key/version',
 
   KEY_THEME = '/key/theme',
@@ -130,6 +132,11 @@ enum LocalNameEnum {
    * /value/senior-search/split-panel-size'
    */
   VALUE_SENIOR_SEARCH_SPLIT_PANEL_SIZE = '/value/senior-search/split-panel-size',
+
+  /**
+   * 设置 - Chat2ES
+   */
+  SETTING_CHAT2ES = '/setting/chat2es',
 
 }
 

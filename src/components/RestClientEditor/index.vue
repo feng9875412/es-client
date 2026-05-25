@@ -134,6 +134,23 @@ function renderValue(value: string): Array<number> {
   return lineNumbers;
 }
 
+function executeCurrent() {
+  if (!instance) return;
+  const value = instance.getValue();
+  const row = Optional.ofNullable(instance.getPosition()).attr("lineNumber").orElse(1);
+  const numbers = renderValue(value);
+  if (numbers.length === 0) return;
+  let targetIndex = numbers.length - 1;
+  for (let i = 0; i < numbers.length; i++) {
+    if (numbers[i] > row) {
+      targetIndex = Math.max(0, i - 1);
+      break;
+    }
+  }
+  useSeniorSearchStore().execute(targetIndex, instance);
+}
+
+defineExpose({ executeCurrent });
 
 </script>
 <style lang="less">

@@ -2,9 +2,6 @@
   <t-loading :loading="loading">
     <div style="overflow-x: hidden" class="mt-8px">
       <t-form :data="config">
-        <t-form-item label="索引">
-          <t-select v-model="config.index" clearable filterable :options="indices"/>
-        </t-form-item>
         <t-form-item label="字段">
           <t-select v-model="config.field" clearable filterable creatable :options="fields"/>
         </t-form-item>
@@ -33,10 +30,10 @@ import {showJson} from "@/utils/model/DialogUtil";
 import {stringifyJsonWithBigIntSupport} from "$/util";
 
 const config = ref({
-  index: "",
   field: "",
   text: ""
 });
+const currentIndex = computed(() => useIndexStore().currentIndex);
 const tokens = ref<Array<Token>>(new Array<Token>());
 const loading = ref(false);
 
@@ -63,16 +60,15 @@ const columns = [
   }
 ];
 
-const indices = computed(() => useIndexStore().indexOptions);
-const fields = computed(() => useIndexStore().fieldOptionMap[config.value.index]);
-const disabled = computed(() => config.value.index === "" || config.value.field === "");
+const fields = computed(() => useIndexStore().fieldOptionMap[currentIndex.value]);
+const disabled = computed(() => currentIndex.value === "" || config.value.field === "");
 
 function exec() {
   tokens.value = [];
   loading.value = true;
   const {client} = useUrlStore();
   if (!client) return MessageUtil.error("请选择链接");
-  client.indexAnalyze(config.value.index, config.value.field, config.value.text)
+  client.indexAnalyze(currentIndex.value, config.value.field, config.value.text)
     .then((rsp) => (tokens.value = rsp.tokens))
     .catch((e) => MessageUtil.error("执行失败", e))
     .finally(() => (loading.value = false));
@@ -83,7 +79,7 @@ function jumpTo() {
     "查询语句",
     stringifyJsonWithBigIntSupport({
       method: "POST",
-      link: `/${config.value.index}/_analyze`,
+      link: `/${currentIndex.value}/_analyze`,
       body: `{
     "field": "${config.value.field}",
     "text": "${config.value.text}"

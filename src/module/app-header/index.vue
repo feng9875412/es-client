@@ -16,16 +16,36 @@
           </div>
         </template>
       </t-select>
-      <!-- 刷新按钮 -->
-      <t-button theme="primary" class="refresh" @click="refresh()" :disabled="!urlId || urlId === ''">
-        {{ $t('action.refresh') }}
-      </t-button>
+      <!-- 索引选择 -->
+      <t-select
+        v-model="currentIndex"
+        :placeholder="$t('placeholder.select_index') || '选择索引'"
+        filterable
+        clearable
+        :disabled="!urlId"
+        class="url-select"
+        :style="{width: (width * 0.8) + 'px'}"
+      >
+        <t-option v-for="opt in indexOptions" :key="opt.value" :label="opt.label" :value="opt.value"/>
+      </t-select>
+      <!-- 索引信息 -->
+      <t-tooltip :content="$t('module.base_search.index_info') || '索引信息'">
+        <t-button class="refresh" theme="primary" variant="outline" shape="square" :disabled="!hasCurrentIndexManage" @click="openCurrentIndex()">
+          <template #icon>
+            <info-circle-icon/>
+          </template>
+        </t-button>
+      </t-tooltip>
       <t-progress v-if="total_shards > 0" :percentage="Math.round(active_shards / total_shards * 100)"
                   :status="status" class="mt-9px w-220px ml-14px">
         <template #label>
           {{ active_shards }} / {{ total_shards }}
         </template>
       </t-progress>
+      <!-- 刷新按钮 -->
+      <t-button theme="primary" class="refresh" @click="refresh()" :disabled="!urlId || urlId === ''">
+        {{ $t('action.refresh') }}
+      </t-button>
     </div>
     <div class="right">
 <!--      <LinkExtend style="margin-right: 8px;"/>-->
@@ -125,6 +145,7 @@ import Assert from "@/utils/Assert";
 import {setItem} from '@/utils/utools/DbStorageUtil';
 import {openAddLink} from "@/page/setting/pages/link/components/EditLink";
 import {openUrl} from "@/utils/BrowserUtil";
+import {useIndexManageEvent} from "@/global/BeanFactory";
 import {
   ChatBubbleHistoryIcon,
   ChatMessageIcon,
@@ -143,6 +164,14 @@ const size = useWindowSize();
 const urlId = ref<number | string | undefined>(useUrlStore().id);
 
 const urls = computed(() => useUrlStore().urls);
+const currentIndex = computed({
+  get: () => useIndexStore().currentIndex,
+  set: (val: string) => { useIndexStore().currentIndex = val; }
+});
+const indexOptions = computed(() => useIndexStore().indexOptions);
+const hasCurrentIndexManage = computed(() => {
+  return currentIndex.value && useIndexStore().mappingMap.has(currentIndex.value);
+});
 const {colorMode} = useColorMode();
 const mode = computed(() => colorMode.value);
 const name = computed(() => useIndexStore().name);
@@ -168,13 +197,27 @@ function setLang(lang: string) {
 }
 
 watch(() => urlId.value, value => setItem(LocalNameEnum.KEY_LAST_URL, value));
+watch(() => currentIndex.value, value => setItem(LocalNameEnum.KEY_LAST_INDEX, value));
 watch(() => useUrlStore().id, value => {
   if (value !== urlId.value) {
     urlId.value = value;
   }
 })
 
-const refresh = () => useIndexStore().reset();
+function refresh() {
+  const savedIndex = currentIndex.value;
+  useIndexStore().reset().then(() => {
+    if (savedIndex && useIndexStore().indexOptions.some(o => o.value === savedIndex)) {
+      useIndexStore().currentIndex = savedIndex;
+    }
+  });
+}
+
+function openCurrentIndex() {
+  if (currentIndex.value) {
+    useIndexManageEvent.emit(currentIndex.value);
+  }
+}
 
 function setMode(m: 'light' | 'dark' | 'auto') {
   colorMode.value = m;

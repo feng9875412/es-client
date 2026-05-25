@@ -2,8 +2,8 @@
   <div class="display-record">
     <div class="display-record-head">
       <t-input-group>
-        <t-select v-model="urlId" style="width: 200px" placeholder="选择所属链接" allow-clear allow-search>
-          <t-option v-for="url in urls" :key="url.id" :value="url.id">{{ url.name }}</t-option>
+        <t-select v-model="urlId" style="width: 200px" placeholder="选择所属链接" clearable filterable>
+          <t-option v-for="url in urls" :key="url.id" :label="url.name" :value="url.id"/>
         </t-select>
         <t-button theme="primary" shape="square" @click="search()">
           <template #icon>

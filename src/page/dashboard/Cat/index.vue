@@ -8,9 +8,6 @@
               {{ tab.title }}
             </t-option>
           </t-select>
-          <t-select v-if="needIndex" v-model="index" allow-search allow-clear>
-            <t-option v-for="idx in indices" :key="idx" :value="idx">{{ idx }}</t-option>
-          </t-select>
         </t-space>
         <div>
           <t-tooltip :content="$t('module.dashboard.jump_to_dev_tool')" position="br">
@@ -55,13 +52,12 @@ const router = useRouter();
 const loading = ref(false);
 
 const activeKey = ref("/_cat/allocation?v");
-const index = ref("");
+const index = computed(() => useIndexStore().currentIndex);
 
 const columns = ref(new Array<BaseTableCol>());
 const records = ref(new Array<TableRowData>());
 
 const virtualListHeight = computed(() => size.height.value - 124);
-const indices = computed(() => useIndexStore().list.map((e) => e.name));
 const needIndex = computed(() => activeKey.value.indexOf("{index}") > -1);
 
 watch(

@@ -61,6 +61,7 @@ export const useIndexStore = defineStore("index", () => {
   const active_shards = ref<number>(0);
   const total_shards = ref<number>(0);
   const status = ref<string>("");
+  const currentIndex = ref<string>("");
 
   const list = computed(() => {
     let idx = indices.value;
@@ -189,6 +190,7 @@ export const useIndexStore = defineStore("index", () => {
     active_shards.value = 0;
     total_shards.value = 0;
     status.value = "";
+    currentIndex.value = "";
   }
 
   async function refreshIndex(index: IndexItem | string, remove = false) {
@@ -234,6 +236,7 @@ export const useIndexStore = defineStore("index", () => {
     active_shards,
     total_shards,
     status,
+    currentIndex,
     list,
     indexOptions,
     fieldOptionMap,

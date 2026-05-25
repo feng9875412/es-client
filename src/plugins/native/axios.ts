@@ -16,11 +16,12 @@ export interface RequestConfig extends AxiosRequestConfig {
 }
 
 
-const instance = axios.create({
+const isTauri = import.meta.env.VITE_PLATFORM === 'tauri';
+const instance = axios.create(isTauri ? {
   adapter: "fetch",
-  env: import.meta.env.VITE_PLATFORM === 'tauri' ? {
-    fetch: fetch
-  } : undefined
+  env: { fetch: fetch }
+} : {
+  // 浏览器模式使用默认 XHR 适配器，支持 GET 请求携带 body
 })
 
 export async function useRequest(config: RequestConfig = {}): Promise<string> {

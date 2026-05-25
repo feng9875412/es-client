@@ -1,4 +1,11 @@
 /// <reference types="vite/client" />
+
+declare module '@json2csv/plainjs' {
+  export class Parser {
+    constructor(opts?: Record<string, any>);
+    parse(data: any): string;
+  }
+}
 interface Window {
   mode: string,
   referrer: string,

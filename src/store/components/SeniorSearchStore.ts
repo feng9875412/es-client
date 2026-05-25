@@ -99,15 +99,6 @@ export const useSeniorSearchStore = defineStore('senior-search', {
         NotificationUtil.warning('新增文档，但没有参数', '警告');
         return;
       }
-      // 新增历史记录
-      seniorSearchRecordService.save({
-        urlId: useUrlStore().id,
-        body: request.body || '',
-        method: request.method,
-        link: request.url,
-      }).then(() => console.log("新增高级查询历史记录"))
-        .catch(e => MessageUtil.error("新增高级查询历史记录失败", e));
-
       useEsRequest({
         url: request.url,
         method: request.method,
@@ -131,6 +122,15 @@ export const useSeniorSearchStore = defineStore('senior-search', {
 
         // 执行过滤
         this.execFilter();
+
+        // 请求成功后才记录历史
+        seniorSearchRecordService.save({
+          urlId: useUrlStore().id,
+          body: request!.body || '',
+          method: request!.method,
+          link: request!.url,
+        }).then(() => console.log("新增高级查询历史记录"))
+          .catch(e => MessageUtil.error("新增高级查询历史记录失败", e));
 
       }).catch((e) => {
         MessageUtil.error("执行失败", e);

@@ -53,6 +53,7 @@ export const switchLanguage = (newLocale: LocaleLanguage) => {
 /**
  * 非组件环境下的翻译函数（如工具类、Store 中使用）
  * @param key 翻译键（如 Header.index）
+ * @param params
  * @returns 翻译后的文本（失败时返回原键名，避免页面空白）
  */
-export const t = (key: string) => i18n.global.t(key);
+export const t = (key: string, params?: Record<string, any>) => i18n.global.t(key, params ?? {});

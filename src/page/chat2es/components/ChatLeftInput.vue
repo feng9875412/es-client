@@ -3,28 +3,42 @@
     <t-textarea
       v-model="inputValue"
       :autosize="{ minRows: 1, maxRows: 8 }"
-      placeholder="输入消息..."
+      placeholder="输入消息，Enter 发送，Shift+Enter 换行..."
+      @keydown="handleKeydown"
     ></t-textarea>
     <div class="input-controls">
       <div class="left-controls">
-        <t-dropdown trigger="click" placement="top">
-          <t-button variant="text" theme="primary" shape="square" size="small" @click="handleAt">
+        <t-popup trigger="click" placement="top" :visible="showIndexPopup">
+          <t-button variant="text" theme="primary" shape="square" size="small" @click="showIndexPopup = !showIndexPopup">
             @
           </t-button>
-          <t-dropdown-menu>
-            <t-dropdown-item v-for="idx in indices" :key="idx.name" :value="idx.name">@{{ idx.name }}</t-dropdown-item>
-          </t-dropdown-menu>
-        </t-dropdown>
+          <template #content>
+            <div class="index-popup">
+              <div
+                v-for="idx in indices"
+                :key="idx.name"
+                class="index-popup__item"
+                @click="insertIndex(idx.name)"
+              >
+                @{{ idx.name }}
+              </div>
+              <div v-if="indices.length === 0" class="index-popup__empty">暂无索引</div>
+            </div>
+          </template>
+        </t-popup>
       </div>
       <div class="right-controls">
-        <t-select v-model="selectedModel" size="small" auto-width>
-          <t-option value="gpt-4">GPT-4</t-option>
-          <t-option value="gpt-3.5">GPT-3.5</t-option>
-          <t-option value="claude">Claude</t-option>
-        </t-select>
-        <t-button variant="text" theme="primary" shape="square" size="small" class="shrink-0" :disabled="empty"
-                  @click="handleSend">
-          <t-icon name="send"/>
+        <t-button
+          variant="text"
+          theme="primary"
+          shape="square"
+          size="small"
+          class="shrink-0"
+          :disabled="!canSend"
+          :loading="loading"
+          @click="handleSend"
+        >
+          <send-icon/>
         </t-button>
       </div>
     </div>
@@ -32,37 +46,41 @@
 </template>
 
 <script lang="ts" setup>
-import {ref} from 'vue';
-import {useIndexStore, useUrlStore} from "@/store";
+import {ref, computed} from 'vue';
+import {SendIcon} from 'tdesign-icons-vue-next';
+import {useIndexStore} from "@/store";
+import {useChat2esStore} from "@/store/components/Chat2esStore";
 
+const chat2esStore = useChat2esStore();
 const inputValue = ref('');
-const selectedModel = ref('gpt-4');
+const showIndexPopup = ref(false);
 
-const indices = computed(() => useIndexStore().list)
-const empty = computed(() => useUrlStore().empty)
+const indices = computed(() => useIndexStore().list);
+const loading = computed(() => chat2esStore.loading);
+const canSend = computed(() => inputValue.value.trim().length > 0 && !loading.value);
 
-const handleEnter = (event: KeyboardEvent) => {
-  if (!event.shiftKey) {
-    event.preventDefault();
+const emit = defineEmits<{
+  send: [message: string];
+}>();
+
+function handleKeydown(_value: string | number, ctx: { e: KeyboardEvent }) {
+  if (ctx.e.key === 'Enter' && !ctx.e.shiftKey) {
+    ctx.e.preventDefault();
     handleSend();
   }
-};
+}
 
-const handleSend = () => {
-  if (inputValue.value.trim()) {
-    // 触发发送事件
-    emit('send', {message: inputValue.value, model: selectedModel.value});
-    inputValue.value = '';
-  }
-};
+function handleSend() {
+  const msg = inputValue.value.trim();
+  if (!msg || loading.value) return;
+  emit('send', msg);
+  inputValue.value = '';
+}
 
-const handleAt = () => {
-  // 触发@事件
-  emit('at');
-};
-
-// 定义组件事件
-const emit = defineEmits(['send', 'at']);
+function insertIndex(name: string) {
+  inputValue.value += `@${name} `;
+  showIndexPopup.value = false;
+}
 </script>
 
 <style scoped lang="less">
@@ -74,7 +92,6 @@ const emit = defineEmits(['send', 'at']);
     min-height: 60px;
     resize: vertical;
 
-    // 限制最大高度
     :deep(.t-textarea__inner) {
       overflow-y: auto;
       padding-bottom: 2rem;
@@ -89,7 +106,6 @@ const emit = defineEmits(['send', 'at']);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 8px;
     padding-top: 8px;
 
     .left-controls, .right-controls {
@@ -97,7 +113,29 @@ const emit = defineEmits(['send', 'at']);
       align-items: center;
       gap: 4px;
     }
+  }
+}
 
+.index-popup {
+  max-height: 200px;
+  overflow-y: auto;
+  min-width: 160px;
+
+  &__item {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--td-bg-color-container-hover);
+    }
+  }
+
+  &__empty {
+    padding: 8px 12px;
+    color: var(--td-text-color-placeholder);
+    font-size: 13px;
   }
 }
 </style>

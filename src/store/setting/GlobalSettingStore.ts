@@ -53,7 +53,7 @@ export const useGlobalSettingStore = defineStore('global-setting', () => {
     console.log("初始化全局设置")
   }
 
-  watchDebounced(globalSetting, sync);
+  watchDebounced(globalSetting, sync, { deep: true });
 
   function sync() {
     if (lock) {

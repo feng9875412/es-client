@@ -46,7 +46,8 @@ export const useUrlStore = defineStore('url', () => {
     urls.value = res.list.sort((a, b) => b.sequence! - a.sequence!);
   };
 
-  init().then(() => console.log("url 初始化成功")).catch(e => console.log("url 初始化失败", e));
+  const _initPromise = init().then(() => console.log("url 初始化成功")).catch(e => console.log("url 初始化失败", e));
+  const ready = () => _initPromise;
 
   const choose = (id: number): boolean => {
     // 查询URL
@@ -171,5 +172,6 @@ export const useUrlStore = defineStore('url', () => {
     update,
     remove,
     save,
+    ready,
   }
 });

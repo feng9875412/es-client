@@ -1,16 +1,6 @@
 <template>
   <div class="flex justify-between p-8px items-center base-search-header">
     <div class="flex gap-8px items-center">
-      <!-- 索引选择 -->
-      <t-select
-        v-model="index"
-        style="width: 40vw"
-        clearable
-        filterable
-        creatable
-        :options="indexOptions"
-        :placeholder="$t('module.base_search.index_placeholder')"
-      />
       <!-- 搜索 -->
       <t-button theme="success" shape="square" :disabled="index === ''" :title="$t('module.base_search.search')" @click="run()">
         <template #icon>
@@ -68,7 +58,6 @@ const props = defineProps({
 
 const {index, run, total, buildData} = props.tab;
 
-const indexOptions = computed(() => useIndexStore().indexOptions);
 const hasIndexManage = computed(() => {
   const {mappingMap} = useIndexStore();
   return mappingMap.has(index.value);

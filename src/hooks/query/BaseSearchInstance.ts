@@ -1,5 +1,5 @@
 import type {Ref} from "vue";
-import {useGlobalSettingStore, useUrlStore} from "@/store";
+import {useGlobalSettingStore, useIndexStore, useUrlStore} from "@/store";
 import MessageUtil from "@/utils/model/MessageUtil";
 import {stringifyJsonWithBigIntSupport, useSnowflake} from "$/util";
 import {cloneDeep} from "es-toolkit";
@@ -35,7 +35,10 @@ export interface BaseSearchInstanceResult {
 }
 
 export const useBaseSearchInstance = (): BaseSearchInstanceResult => {
-  const index = ref("");
+  const index = computed({
+    get: () => useIndexStore().currentIndex,
+    set: (val: string) => { useIndexStore().currentIndex = val; }
+  });
   const query = ref(new Array<BaseQueryItem>());
   const orders = ref(new Array<BaseQueryOrder>());
   const pageNum = ref(1);
