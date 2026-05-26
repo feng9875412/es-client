@@ -216,7 +216,8 @@
     "senior_search": "高度な検索",
     "setting": "設定",
     "setting_global": "一般",
-    "setting_link": "リンク"
+    "setting_link": "リンク",
+    "setting_model": "モデル設定"
   },
   "message": {
     "confirm_delete_alias": "この操作によりエイリアスが完全に削除されます。続行しますか？",

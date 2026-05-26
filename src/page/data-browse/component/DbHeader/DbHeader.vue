@@ -1,7 +1,21 @@
 <template>
   <div class="flex justify-between db-header">
     <!-- 左侧条件 -->
-    <div class="left flex">
+    <div class="left flex items-center">
+      <t-tag
+        :theme="sourceTheme"
+        variant="light"
+        size="small"
+        class="ml-4px mr-4px source-tag"
+      >
+        <template #icon>
+          <table-icon v-if="type === 'index'" size="12px"/>
+          <tag-icon v-else-if="type === 'alias'" size="12px"/>
+          <bookmark-double-icon v-else-if="type === 'view'" size="12px"/>
+        </template>
+        {{ sourceLabel }}：{{ index }}
+      </t-tag>
+      <div class="sep"></div>
       <db-page :tab />
       <div class="sep"></div>
       <db-simple-item :tip="$t('module.data_browse.refresh')" :disable="!index" @click="executeQuery">
@@ -58,11 +72,13 @@ import DbSimpleItem from "@/page/data-browse/component/DbHeader/components/DbSim
 import DbPage from "@/page/data-browse/component/DbHeader/components/DbPage.vue";
 import DbTableHeader from "@/page/data-browse/component/DbHeader/components/DbTableHeader.vue";
 import {
-  AddIcon, HelpCircleIcon,
+  AddIcon, BookmarkDoubleIcon, HelpCircleIcon,
   MoreIcon,
   PrintIcon,
   RefreshIcon,
-  SearchIcon
+  SearchIcon,
+  TableIcon,
+  TagIcon
 } from "tdesign-icons-vue-next";
 import { UseDataBrowserInstance } from "@/hooks";
 import { showDataExportDrawer } from "@/components/DataExport";
@@ -82,6 +98,23 @@ const props = defineProps({
 
 const { index, type, total, run, add, buildSearch } =
   props.tab as UseDataBrowserInstance;
+
+const sourceLabel = computed(() => {
+  switch (type) {
+    case 'index': return t('module.data_browse.index');
+    case 'alias': return t('module.data_browse.alias');
+    case 'view': return t('module.data_browse.view');
+    default: return type;
+  }
+});
+const sourceTheme = computed(() => {
+  switch (type) {
+    case 'index': return 'primary';
+    case 'alias': return 'success';
+    case 'view': return 'warning';
+    default: return 'default';
+  }
+});
 
 const executeQuery = () => run();
 const showQuery = () => {
@@ -121,5 +154,9 @@ const openHelp = () => window.open(Constant.doc.dataBrowse);
 <style scoped>
 .db-header {
   border-bottom: 1px solid var(--td-border-level-2-color);
+}
+.source-tag {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 </style>

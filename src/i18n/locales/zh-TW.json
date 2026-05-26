@@ -37,7 +37,8 @@
     "senior_search": "高級搜索",
     "setting": "設置",
     "setting_global": "全局設置",
-    "setting_link": "鏈接管理"
+    "setting_link": "鏈接管理",
+    "setting_model": "模型設置"
   },
   "placeholder": {
     "select_link": "請選擇鏈接"

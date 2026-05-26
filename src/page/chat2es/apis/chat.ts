@@ -42,7 +42,8 @@ export async function chatCompletion(
   apiKey: string,
   model: string,
   messages: ChatMessage[],
-  tools?: ToolDefinition[]
+  tools?: ToolDefinition[],
+  temperature?: number
 ): Promise<ChatCompletionChoice> {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const body: Record<string, any> = {
@@ -52,6 +53,9 @@ export async function chatCompletion(
   };
   if (tools && tools.length > 0) {
     body.tools = tools;
+  }
+  if (temperature !== undefined) {
+    body.temperature = temperature;
   }
   const response = await axios.post<ChatCompletionResponse>(url, body, {
     headers: {

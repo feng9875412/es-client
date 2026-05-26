@@ -1,227 +1,445 @@
 <template>
-  <div class="abs-8 !left-0 material-card p-16px flex flex-col gap-12px overflow-y-auto">
-    <!-- 折叠态：已配置时只显示摘要 -->
-    <template v-if="configured && collapsed">
-      <div class="summary-bar" @click="collapsed = false">
-        <div class="summary-info">
-          <t-tag theme="success" variant="light" size="small">已配置</t-tag>
-          <span class="summary-model">{{ chat2esStore.model }}</span>
+  <div class="chat-right abs-8 !left-0 flex flex-col">
+    <!-- 顶部工具栏 -->
+    <div class="chat-right__toolbar">
+      <template v-if="configured">
+        <t-select
+          v-model="selectedModelId"
+          :options="modelOptions"
+          placeholder="模型"
+          size="small"
+          class="toolbar-select"
+          :borderless="true"
+        />
+        <div class="toolbar-divider"/>
+        <div class="toolbar-thinking">
+          <t-tooltip v-for="opt in thinkingOptions" :key="opt.value" :content="opt.tip" :show-arrow="false">
+            <div
+              class="thinking-chip"
+              :class="{'thinking-chip--active': currentThinkingLevel === opt.value}"
+              @click="currentThinkingLevel = opt.value"
+            >
+              <component :is="opt.icon" size="14px"/>
+            </div>
+          </t-tooltip>
         </div>
-        <t-button variant="text" size="small" shape="square">
-          <setting-icon/>
-        </t-button>
-      </div>
-      <div class="status-section-mini">
-        <div class="status-item-mini">
-          <span class="status-label">ES</span>
-          <span :class="{'text-success': !urlEmpty, 'text-warning': urlEmpty}">
-            {{ urlEmpty ? '未连接' : currentUrl }}
-          </span>
-        </div>
-        <div class="status-item-mini">
-          <span class="status-label">索引</span>
-          <span>{{ indexCount }} 个</span>
-        </div>
-      </div>
-    </template>
-
-    <!-- 展开态：完整配置表单 -->
-    <template v-else>
-      <div class="flex justify-between items-center">
-        <div class="font-bold text-base">模型配置</div>
-        <t-button v-if="configured" variant="text" size="small" shape="square" @click="collapsed = true">
-          <chevron-up-icon/>
-        </t-button>
-      </div>
-
-      <t-form :label-width="0" layout="vertical">
-        <t-form-item label="API Base URL">
-          <t-input
-            v-model="localBaseUrl"
-            placeholder="https://api.minimax.io/v1"
-            clearable
-          />
-          <template #help>
-            OpenAI 兼容接口地址，如 MiniMax、OpenAI、DeepSeek 等
-          </template>
-        </t-form-item>
-
-        <t-form-item label="API Key">
-          <t-input
-            v-model="localApiKey"
-            :type="showKey ? 'text' : 'password'"
-            placeholder="sk-..."
-            clearable
-          >
-            <template #suffix>
-              <t-button variant="text" shape="square" size="small" @click="showKey = !showKey">
-                <browse-icon v-if="showKey"/>
-                <browse-off-icon v-else/>
-              </t-button>
-            </template>
-          </t-input>
-        </t-form-item>
-
-        <t-form-item label="模型名称">
-          <t-input
-            v-model="localModel"
-            placeholder="MiniMax-M1"
-            clearable
-          />
-        </t-form-item>
-
-        <t-form-item>
-          <t-button theme="primary" block @click="handleSave" :loading="saving">
-            保存配置
+        <div class="toolbar-divider"/>
+        <t-tooltip content="模型设置" :show-arrow="false">
+          <t-button variant="text" theme="default" shape="square" size="small" @click="goModelSetting">
+            <setting-icon size="16px"/>
           </t-button>
-        </t-form-item>
-      </t-form>
+        </t-tooltip>
+      </template>
+      <template v-else>
+        <t-button size="small" theme="primary" variant="outline" @click="goModelSetting">
+          <template #icon><setting-icon size="14px"/></template>
+          配置模型
+        </t-button>
+      </template>
+    </div>
 
-      <t-divider/>
+    <!-- 可视化结果区域 -->
+    <div class="chat-right__body">
+      <template v-if="vizPanels.length === 0">
+        <div class="empty-viz">
+          <chart-icon size="40px" class="empty-viz__icon"/>
+          <div class="empty-viz__title">操作结果将在这里展示</div>
+          <div class="empty-viz__hint">AI 执行 ES 查询后，数据会自动可视化展示</div>
+        </div>
+      </template>
+      <template v-else>
+        <!-- Tab 切换 -->
+        <div class="viz-tabs">
+          <div
+            v-for="panel in vizPanels"
+            :key="panel.id"
+            class="viz-tab"
+            :class="{'viz-tab--active': panel.id === activeVizId}"
+            @click="activeVizId = panel.id"
+          >
+            <span class="viz-tab__title">{{ panel.title }}</span>
+            <span class="viz-tab__close" @click="(e: MouseEvent) => { e.stopPropagation(); removeVizPanel(panel.id); }">
+              <close-icon size="12px"/>
+            </span>
+          </div>
+        </div>
 
-      <div class="status-section">
-        <div class="font-bold text-sm mb-8px">当前状态</div>
-        <div class="status-item">
-          <span class="status-label">ES 连接</span>
-          <span class="status-value" :class="{'text-success': !urlEmpty, 'text-warning': urlEmpty}">
-            {{ urlEmpty ? '未连接' : currentUrl }}
-          </span>
+        <!-- 面板内容 -->
+        <div class="viz-content" v-if="activePanel">
+          <!-- 表格类型 - 使用 vxe-table -->
+          <template v-if="activePanel.type === 'table'">
+            <vxe-table
+              :data="tableRows"
+              :height="tableHeight"
+              :column-config="vxeColumnConfig"
+              :row-config="vxeRowConfig"
+              :virtual-y-config="vxeVirtualYConfig"
+              stripe
+              show-overflow="tooltip"
+              empty-text="无数据"
+            >
+              <vxe-column type="expand" width="80" title="详细" fixed="left">
+                <template #content="{ row }">
+                  <div class="expand-wrapper">
+                    <MonacoView :value="row['_source']"/>
+                  </div>
+                </template>
+              </vxe-column>
+              <vxe-column
+                v-for="col in tableColumns"
+                :key="col"
+                :field="col"
+                :title="col"
+                :width="calcColumnWidth(col)"
+                show-overflow="tooltip"
+              />
+            </vxe-table>
+            <div v-if="activePanel.data.length > 200" class="viz-table-info">
+              显示前 200 条，共 {{ activePanel.data.length }} 条
+            </div>
+          </template>
+
+          <!-- JSON 类型 -->
+          <template v-else>
+            <div class="viz-json-wrapper">
+              <div class="viz-json-toolbar">
+                <t-button variant="text" size="small" @click="copyJson">
+                  <template #icon><file-copy-icon size="14px"/></template>
+                  复制
+                </t-button>
+                <t-button variant="text" size="small" @click="jsonCollapsed = !jsonCollapsed">
+                  {{ jsonCollapsed ? '展开全部' : '折叠' }}
+                </t-button>
+              </div>
+              <pre class="viz-json"><code>{{ formatJson }}</code></pre>
+            </div>
+          </template>
         </div>
-        <div class="status-item">
-          <span class="status-label">可用索引</span>
-          <span class="status-value">{{ indexCount }} 个</span>
-        </div>
-        <div class="status-item">
-          <span class="status-label">API 配置</span>
-          <span class="status-value" :class="{'text-success': configured, 'text-warning': !configured}">
-            {{ configured ? '已配置' : '未配置' }}
-          </span>
-        </div>
-      </div>
-    </template>
+      </template>
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {ref, computed, onMounted} from 'vue';
-import {SettingIcon, ChevronUpIcon, BrowseIcon, BrowseOffIcon} from 'tdesign-icons-vue-next';
-import {useUrlStore, useIndexStore} from "@/store";
-import {useChat2esStore} from "@/store/components/Chat2esStore";
+import {ref, computed, onMounted, watch, markRaw} from 'vue';
+import {
+  SettingIcon,
+  CloseIcon,
+  FileCopyIcon,
+  ChartIcon,
+  RocketIcon,
+  ControlPlatformIcon,
+  LightbulbIcon,
+} from 'tdesign-icons-vue-next';
+import {useModelSettingStore, type ThinkingLevel} from "@/store/components/ModelSettingStore";
+import {useChat2esStore, type VizPanel} from "@/store/components/Chat2esStore";
+import {columnConfig as vxeColumnConfig, rowConfig as vxeRowConfig, virtualYConfig as vxeVirtualYConfig} from "@/page/data-browse/component/DbContainer/args";
+import MonacoView from "@/components/view/MonacoView/index.vue";
 import MessageUtil from "@/utils/model/MessageUtil";
 
-const chat2esStore = useChat2esStore();
+const router = useRouter();
+const modelStore = useModelSettingStore();
+const chatStore = useChat2esStore();
 
-const localBaseUrl = ref('');
-const localApiKey = ref('');
-const localModel = ref('');
-const showKey = ref(false);
-const saving = ref(false);
-const collapsed = ref(false);
+const configured = computed(() => modelStore.configured);
+const selectedModelId = ref('');
+const currentThinkingLevel = ref<ThinkingLevel>('medium');
+const jsonCollapsed = ref(false);
 
-const urlEmpty = computed(() => useUrlStore().empty);
-const currentUrl = computed(() => useUrlStore().current);
-const indexCount = computed(() => useIndexStore().list.length);
-const configured = computed(() => chat2esStore.configured);
+const modelOptions = computed(() =>
+  modelStore.models.map(m => ({label: m.name, value: m.id}))
+);
 
-onMounted(async () => {
-  await chat2esStore.init();
-  localBaseUrl.value = chat2esStore.baseUrl;
-  localApiKey.value = chat2esStore.apiKey;
-  localModel.value = chat2esStore.model;
-  if (configured.value) {
-    collapsed.value = true;
+const thinkingOptions = [
+  {value: 'low' as ThinkingLevel, label: '精确', tip: '精确模式 (temperature: 0.2)', icon: markRaw(RocketIcon)},
+  {value: 'medium' as ThinkingLevel, label: '平衡', tip: '平衡模式 (temperature: 0.6)', icon: markRaw(ControlPlatformIcon)},
+  {value: 'high' as ThinkingLevel, label: '创造', tip: '创造模式 (temperature: 1.0)', icon: markRaw(LightbulbIcon)},
+];
+
+const vizPanels = computed(() => chatStore.vizPanels);
+const activeVizId = computed({
+  get: () => chatStore.activeVizId,
+  set: (val: string) => { chatStore.activeVizId = val; },
+});
+
+const activePanel = computed(() => vizPanels.value.find(p => p.id === activeVizId.value));
+
+const tableHeight = ref(400);
+
+const tableColumns = computed(() => {
+  if (!activePanel.value || activePanel.value.type !== 'table') return [];
+  const data = activePanel.value.data as Record<string, any>[];
+  if (data.length === 0) return [];
+  const colSet = new Set<string>();
+  data.slice(0, 30).forEach(row => Object.keys(row).forEach(k => colSet.add(k)));
+  colSet.delete('_source');
+  return Array.from(colSet);
+});
+
+const tableRows = computed(() => {
+  if (!activePanel.value || activePanel.value.type !== 'table') return [];
+  return (activePanel.value.data as Record<string, any>[]).slice(0, 200);
+});
+
+function calcColumnWidth(col: string): number {
+  return Math.max(col.length * 12, 100);
+}
+
+const formatJson = computed(() => {
+  if (!activePanel.value) return '';
+  try {
+    const indent = jsonCollapsed.value ? 0 : 2;
+    const str = JSON.stringify(activePanel.value.data, null, indent);
+    if (str.length > 50000) {
+      return str.substring(0, 50000) + '\n\n... (数据过长，已截断)';
+    }
+    return str;
+  } catch {
+    return String(activePanel.value.data);
   }
 });
 
-async function handleSave() {
-  saving.value = true;
-  try {
-    chat2esStore.baseUrl = localBaseUrl.value;
-    chat2esStore.apiKey = localApiKey.value;
-    chat2esStore.model = localModel.value;
-    await chat2esStore.saveSettings();
-    MessageUtil.success('配置已保存');
-    collapsed.value = true;
-  } catch (e) {
-    MessageUtil.error('保存失败');
-  } finally {
-    saving.value = false;
+function removeVizPanel(id: string) {
+  const idx = chatStore.vizPanels.findIndex(p => p.id === id);
+  if (idx !== -1) {
+    chatStore.vizPanels.splice(idx, 1);
+    if (activeVizId.value === id) {
+      activeVizId.value = chatStore.vizPanels.length > 0 ? chatStore.vizPanels[chatStore.vizPanels.length - 1].id : '';
+    }
   }
+}
+
+function copyJson() {
+  navigator.clipboard.writeText(formatJson.value).then(() => {
+    MessageUtil.success('已复制');
+  });
+}
+
+onMounted(async () => {
+  await modelStore.init();
+  selectedModelId.value = modelStore.activeModelId;
+  currentThinkingLevel.value = modelStore.thinkingLevel;
+  updateTableHeight();
+  window.addEventListener('resize', updateTableHeight);
+});
+
+function updateTableHeight() {
+  tableHeight.value = Math.max(window.innerHeight - 140, 200);
+}
+
+watch(selectedModelId, (val) => {
+  if (val) modelStore.setActiveModel(val);
+});
+
+watch(currentThinkingLevel, (val) => {
+  modelStore.setThinkingLevel(val);
+});
+
+function goModelSetting() {
+  router.push('/setting/model');
 }
 </script>
 
 <style scoped lang="less">
-.summary-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  padding: 4px 0;
-  border-radius: 6px;
-
-  &:hover {
-    opacity: 0.8;
-  }
-}
-
-.summary-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.summary-model {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--td-text-color-primary);
-}
-
-.status-section-mini {
+.chat-right {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  background: var(--td-bg-color-container);
+  border-radius: 8px;
+  overflow: hidden;
+}
 
-  .status-item-mini {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--td-text-color-secondary);
+.chat-right__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--td-component-border);
+  background: var(--td-bg-color-secondarycontainer);
+  flex-shrink: 0;
+}
+
+.toolbar-select {
+  max-width: 160px;
+
+  :deep(.t-input) {
+    border: none !important;
+    background: transparent !important;
   }
 }
 
-.status-section {
-  .status-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 13px;
-    border-bottom: 1px solid var(--td-component-border);
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--td-component-border);
+  margin: 0 2px;
+}
 
-    &:last-child {
-      border-bottom: none;
+.toolbar-thinking {
+  display: flex;
+  gap: 2px;
+}
+
+.thinking-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--td-text-color-placeholder);
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--td-bg-color-container-hover);
+    color: var(--td-text-color-secondary);
+  }
+
+  &--active {
+    background: var(--td-brand-color-light);
+    color: var(--td-brand-color);
+  }
+}
+
+.chat-right__body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-viz {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--td-text-color-placeholder);
+
+  &__icon {
+    opacity: 0.2;
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__hint {
+    font-size: 12px;
+  }
+}
+
+.viz-tabs {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--td-component-border);
+  flex-shrink: 0;
+
+  &::-webkit-scrollbar {
+    height: 2px;
+  }
+}
+
+.viz-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--td-text-color-secondary);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--td-bg-color-container-hover);
+  }
+
+  &--active {
+    color: var(--td-brand-color);
+    border-bottom-color: var(--td-brand-color);
+    font-weight: 500;
+  }
+
+  &__title {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    color: var(--td-text-color-placeholder);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--td-error-color);
+      background: var(--td-error-color-1);
     }
   }
 
-  .status-label {
-    color: var(--td-text-color-secondary);
-  }
-
-  .status-value {
-    color: var(--td-text-color-primary);
-    font-weight: 500;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  &:hover &__close {
+    opacity: 1;
   }
 }
 
-.text-success {
-  color: var(--td-success-color) !important;
+.viz-content {
+  flex: 1;
+  overflow: auto;
 }
 
-.text-warning {
-  color: var(--td-warning-color) !important;
+.expand-wrapper {
+  height: 300px;
+}
+
+.viz-table-info {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--td-text-color-placeholder);
+  text-align: center;
+  border-top: 1px solid var(--td-component-border);
+}
+
+.viz-json-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.viz-json-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--td-component-border);
+  flex-shrink: 0;
+}
+
+.viz-json {
+  flex: 1;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--td-bg-color-page);
+
+  code {
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
 }
 </style>

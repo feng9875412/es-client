@@ -138,6 +138,15 @@ enum LocalNameEnum {
    */
   SETTING_CHAT2ES = '/setting/chat2es',
 
+  /**
+   * 设置 - 模型列表
+   */
+  SETTING_MODELS = '/setting/models',
+
+  KEY_ACTIVE_MODEL = '/key/active-model',
+
+  KEY_THINKING_LEVEL = '/key/thinking-level',
+
 }
 
 export default LocalNameEnum;

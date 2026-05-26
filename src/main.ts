@@ -24,12 +24,18 @@ self.MonacoEnvironment = { // 提供一个定义worker路径的全局变量
 };
 
 // 抑制 ResizeObserver 的无害警告
-const resizeObserverErr = (e: ErrorEvent) => {
-  if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+const resizeObserverMsg = 'ResizeObserver loop completed with undelivered notifications.';
+window.addEventListener('error', (e: ErrorEvent) => {
+  if (e.message === resizeObserverMsg) {
     e.stopImmediatePropagation();
+    e.preventDefault();
   }
-};
-window.addEventListener('error', resizeObserverErr);
+});
+window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+  if (e.reason?.message === resizeObserverMsg) {
+    e.preventDefault();
+  }
+});
 
 // 注册语言服务器
 registerLanguageForHttp();

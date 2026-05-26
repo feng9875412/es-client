@@ -216,7 +216,8 @@
     "senior_search": "Erweiterte Suche",
     "setting": "Einstellungen",
     "setting_global": "Globale Einstellungen",
-    "setting_link": "Link-Verwaltung"
+    "setting_link": "Link-Verwaltung",
+    "setting_model": "Modell-Einstellungen"
   },
   "message": {
     "confirm_delete_alias": "Dieser Vorgang löscht den Alias dauerhaft. Fortfahren?",

@@ -216,7 +216,8 @@
     "senior_search": "Senior Search",
     "setting": "Settings",
     "setting_global": "Global",
-    "setting_link": "Links"
+    "setting_link": "Links",
+    "setting_model": "Model Settings"
   },
   "message": {
     "confirm_delete_alias": "This operation will permanently delete the alias. Continue?",

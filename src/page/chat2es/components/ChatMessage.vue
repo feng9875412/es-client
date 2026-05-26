@@ -1,6 +1,18 @@
 <template>
   <div class="chat-message" :class="[`chat-message--${role}`]" ref="messageEl">
     <div class="chat-message__bubble">
+      <!-- 思考区块 -->
+      <div v-if="thinkContent" class="think-block" :class="{'think-block--collapsed': thinkCollapsed}">
+        <div class="think-block__header" @click="thinkCollapsed = !thinkCollapsed">
+          <span class="think-block__icon">
+            <lightbulb-icon size="14px"/>
+          </span>
+          <span class="think-block__title">{{ thinkCollapsed ? '展开思考过程' : '思考过程' }}</span>
+          <chevron-down-icon v-if="thinkCollapsed" size="14px" class="think-block__arrow"/>
+          <chevron-up-icon v-else size="14px" class="think-block__arrow"/>
+        </div>
+        <div v-show="!thinkCollapsed" class="think-block__body" v-html="renderedThink"></div>
+      </div>
       <div class="chat-message__content" v-html="renderedContent"></div>
     </div>
   </div>
@@ -8,6 +20,7 @@
 
 <script lang="ts" setup>
 import {computed, onMounted, ref} from 'vue';
+import {LightbulbIcon, ChevronDownIcon, ChevronUpIcon} from 'tdesign-icons-vue-next';
 import MessageUtil from "@/utils/model/MessageUtil";
 
 const props = defineProps<{
@@ -16,6 +29,7 @@ const props = defineProps<{
 }>();
 
 const messageEl = ref<HTMLElement>();
+const thinkCollapsed = ref(true);
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -44,7 +58,17 @@ function renderMarkdown(text: string): string {
   return processed;
 }
 
-const renderedContent = computed(() => renderMarkdown(props.content));
+const thinkContent = computed(() => {
+  const match = props.content.match(/<think>([\s\S]*?)<\/think>/);
+  return match ? match[1].trim() : '';
+});
+
+const mainContent = computed(() => {
+  return props.content.replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim();
+});
+
+const renderedThink = computed(() => renderMarkdown(thinkContent.value));
+const renderedContent = computed(() => renderMarkdown(mainContent.value));
 
 onMounted(() => {
   messageEl.value?.addEventListener('click', (e: MouseEvent) => {
@@ -105,6 +129,55 @@ onMounted(() => {
   padding: 10px 14px;
   word-break: break-word;
   line-height: 1.6;
+}
+
+.think-block {
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--td-component-border);
+  background: var(--td-bg-color-secondarycontainer);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--td-text-color-secondary);
+    user-select: none;
+    transition: background 0.2s;
+
+    &:hover {
+      background: var(--td-bg-color-container-hover);
+    }
+  }
+
+  &__icon {
+    display: flex;
+    color: var(--td-warning-color-6);
+  }
+
+  &__title {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  &__arrow {
+    color: var(--td-text-color-placeholder);
+    transition: transform 0.2s;
+  }
+
+  &__body {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--td-text-color-secondary);
+    line-height: 1.6;
+    border-top: 1px solid var(--td-component-border);
+    max-height: 300px;
+    overflow-y: auto;
+  }
 }
 
 .chat-message__content {

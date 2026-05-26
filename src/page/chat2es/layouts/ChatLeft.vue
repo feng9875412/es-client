@@ -1,25 +1,31 @@
 <template>
-  <div class="abs-8 !right-0 material-card p-8px flex flex-col">
-    <div class="chat-header flex justify-between items-center mb-8px">
-      <div class="font-bold text-base">Chat2ES</div>
-      <div class="flex gap-4px">
-        <t-tooltip content="新建对话">
-          <t-button size="small" theme="primary" variant="text" shape="square" @click="handleNewChat">
-            <template #icon>
-              <chat-bubble-add-icon/>
-            </template>
-          </t-button>
-        </t-tooltip>
+  <div class="chat-left abs-8 !right-0 flex flex-col">
+    <!-- 标题栏 -->
+    <div class="chat-left__header">
+      <div class="chat-left__title">
+        <chat-icon size="18px"/>
+        <span>Chat2ES</span>
+      </div>
+      <div class="flex items-center gap-2px">
+        <t-tag v-if="!configured" theme="warning" variant="light" size="small">未配置模型</t-tag>
+        <t-tag v-else-if="urlEmpty" theme="warning" variant="light" size="small">ES 未连接</t-tag>
+        <t-tag v-else theme="success" variant="outline" size="small">{{ indexCount }} 索引</t-tag>
       </div>
     </div>
 
-    <div class="chat-messages flex-1 overflow-y-auto" ref="messagesContainer">
+    <!-- 消息列表 -->
+    <div class="chat-left__messages" ref="messagesContainer">
       <div v-if="displayMessages.length === 0" class="empty-state">
-        <div class="empty-icon">
-          <chat-icon size="48px"/>
+        <div class="empty-state__icon">
+          <chat-icon size="52px"/>
         </div>
-        <div class="empty-text">发送消息开始对话</div>
-        <div class="empty-hint">我可以直接操作 ES：查询 mapping、执行搜索、管理索引等</div>
+        <div class="empty-state__title">Chat2ES 助手</div>
+        <div class="empty-state__desc">我可以直接查询和操作你的 Elasticsearch 集群</div>
+        <div class="empty-state__hints">
+          <div class="hint-item" v-for="hint in hints" :key="hint" @click="quickSend(hint)">
+            {{ hint }}
+          </div>
+        </div>
       </div>
       <template v-for="(msg, index) in displayMessages" :key="index">
         <chat-message
@@ -38,19 +44,22 @@
       </div>
     </div>
 
-    <div class="chat-input-area mt-8px">
-      <chat-left-input @send="handleSend"/>
+    <!-- 输入区 -->
+    <div class="chat-left__input">
+      <chat-left-input @send="handleSend" @clear="handleNewChat"/>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import {computed, nextTick, ref, watch} from 'vue';
-import {ChatBubbleAddIcon, ChatIcon} from "tdesign-icons-vue-next";
+import {ChatIcon} from "tdesign-icons-vue-next";
 import ChatLeftInput from "@/page/chat2es/components/ChatLeftInput.vue";
 import ChatMessage from "@/page/chat2es/components/ChatMessage.vue";
 import ChatToolStatus from "@/page/chat2es/components/ChatToolStatus.vue";
 import {useChat2esStore} from "@/store/components/Chat2esStore";
+import {useModelSettingStore} from "@/store/components/ModelSettingStore";
+import {useUrlStore, useIndexStore} from "@/store";
 
 const chat2esStore = useChat2esStore();
 const messagesContainer = ref<HTMLElement>();
@@ -58,6 +67,16 @@ const messagesContainer = ref<HTMLElement>();
 const displayMessages = computed(() => chat2esStore.displayMessages);
 const loading = computed(() => chat2esStore.loading);
 const toolStatus = computed(() => chat2esStore.toolStatus);
+const configured = computed(() => useModelSettingStore().configured);
+const urlEmpty = computed(() => useUrlStore().empty);
+const indexCount = computed(() => useIndexStore().list.length);
+
+const hints = [
+  '查看集群健康状态',
+  '列出所有索引',
+  '查询当前索引的 mapping',
+  '搜索最近 10 条数据',
+];
 
 function scrollToBottom() {
   nextTick(() => {
@@ -75,14 +94,51 @@ async function handleSend(message: string) {
   scrollToBottom();
 }
 
+function quickSend(hint: string) {
+  handleSend(hint);
+}
+
 function handleNewChat() {
   chat2esStore.clear();
 }
 </script>
 
 <style scoped lang="less">
-.chat-messages {
+.chat-left {
+  background: var(--td-bg-color-container);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chat-left__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--td-component-border);
+  flex-shrink: 0;
+}
+
+.chat-left__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--td-text-color-primary);
+}
+
+.chat-left__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 4px;
   scroll-behavior: smooth;
+}
+
+.chat-left__input {
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--td-component-border);
+  flex-shrink: 0;
 }
 
 .empty-state {
@@ -91,21 +147,48 @@ function handleNewChat() {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--td-text-color-placeholder);
-  gap: 12px;
+  gap: 8px;
+  padding: 20px;
 
-  .empty-icon {
-    opacity: 0.3;
+  &__icon {
+    opacity: 0.15;
+    margin-bottom: 4px;
   }
 
-  .empty-text {
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--td-text-color-secondary);
+  &__title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--td-text-color-primary);
   }
 
-  .empty-hint {
+  &__desc {
     font-size: 13px;
+    color: var(--td-text-color-secondary);
+    margin-bottom: 16px;
+  }
+
+  &__hints {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
+.hint-item {
+  padding: 10px 14px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--td-text-color-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--td-brand-color);
+    color: var(--td-brand-color);
+    background: var(--td-brand-color-light);
   }
 }
 

@@ -71,6 +71,10 @@ const router = createRouter({
       name: '链接管理',
       path: 'link',
       component: () => import('@/page/setting/pages/link/index.vue')
+    }, {
+      name: '模型设置',
+      path: 'model',
+      component: () => import('@/page/setting/pages/model.vue')
     }]
   }, {
     name: '更多',

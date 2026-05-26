@@ -17,13 +17,15 @@
   </div>
 </template>
 <script lang="ts" setup>
+import {onMounted} from "vue";
 import {storeToRefs} from "pinia";
-import {DataBrowseTab, useDataBrowseStore} from "@/store/components/DataBrowseStore";
+import {DataBrowseTab, encodeValue, useDataBrowseStore} from "@/store/components/DataBrowseStore";
 import DataBrowserIndexTab from "@/page/data-browse/tab/DataBrowserIndexTab.vue";
 import EmptyResult from "@/components/Result/EmptyResult.vue";
 import {useGlobalStore} from "@/store/GlobalStore";
 import DataBrowserQueryTab from "../tab/DataBrowserQueryTab.vue";
 import {UseDataBrowserInstance, UseDataBrowserQueryContent} from "@/hooks";
+import {useIndexStore} from "@/store";
 
 const {tabMap} = useDataBrowseStore();
 const {tabId} = storeToRefs(useDataBrowseStore());
@@ -33,6 +35,19 @@ const isDark = computed(() => useGlobalStore().isDark);
 const removeTab = ({value}: any) => {
   useDataBrowseStore().closeTab(`${value}`);
 }
+
+onMounted(() => {
+  const idx = useIndexStore().currentIndex;
+  if (idx && tabs.value.length === 0) {
+    useDataBrowseStore().openTab(encodeValue('index', idx), idx);
+  }
+});
+
+watch(() => useIndexStore().currentIndex, (idx) => {
+  if (!idx) return;
+  const value = encodeValue('index', idx);
+  useDataBrowseStore().openTab(value, idx);
+});
 </script>
 <style scoped lang="less">
 .dbr-container {

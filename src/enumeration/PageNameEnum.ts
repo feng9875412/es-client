@@ -37,6 +37,8 @@ enum PageNameEnum {
 
     SETTING_LINK = "/setting/link",
 
+    SETTING_MODEL = "/setting/model",
+
 
     SETTING_SENIOR_FILTER_RECORD = "/setting/senior-filter-record",
 

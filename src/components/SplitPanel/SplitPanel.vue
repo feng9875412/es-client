@@ -1,6 +1,6 @@
 <template>
   <div ref="containerRef" class="flex h-full">
-    <div class="h-full overflow-auto relative" :style="{ width: leftPx }">
+    <div class="h-full overflow-auto relative" :style="{ width: leftPx, transition: animating ? 'width 0.35s ease' : 'none' }">
       <slot name="left" />
     </div>
     <div
@@ -18,6 +18,7 @@
   </template>
 <script setup lang="ts">
 const model = defineModel<number>({ default: 240 })
+const animating = defineModel<boolean>('animating', { default: false })
 const props = defineProps<{ dividerWidth?: number }>()
 const dividerW = computed(() => props.dividerWidth ?? 8)
 const containerRef = ref<HTMLElement | null>(null)

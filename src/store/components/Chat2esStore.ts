@@ -1,26 +1,14 @@
 import {defineStore} from "pinia";
 import {computed, ref} from "vue";
-import {getFromOneByAsync, saveOneByAsync} from "@/utils/utools/DbStorageUtil";
-import LocalNameEnum from "@/enumeration/LocalNameEnum";
 import {useUrlStore} from "@/store/UrlStore";
 import {useIndexStore} from "@/store/IndexStore";
 import {chatCompletion, type ChatMessage} from "@/page/chat2es/apis/chat";
 import {agentTools, executeToolCall} from "@/page/chat2es/agent/tools";
+import {useModelSettingStore} from "@/store/components/ModelSettingStore";
 import MessageUtil from "@/utils/model/MessageUtil";
 
 const MAX_TOOL_ROUNDS = 5;
-
-interface Chat2esSettings {
-  apiKey: string;
-  model: string;
-  baseUrl: string;
-}
-
-const DEFAULT_SETTINGS: Chat2esSettings = {
-  apiKey: '',
-  model: 'MiniMax-M1',
-  baseUrl: 'https://api.minimax.io/v1',
-};
+const CHARS_PER_TOKEN = 2.5;
 
 export interface DisplayMessage {
   role: 'user' | 'assistant' | 'tool-calling';
@@ -28,30 +16,24 @@ export interface DisplayMessage {
   toolCalls?: Array<{ name: string; args: string; result?: string }>;
 }
 
+export interface VizPanel {
+  id: string;
+  title: string;
+  type: 'json' | 'table' | 'text';
+  data: any;
+  timestamp: number;
+}
+
 export const useChat2esStore = defineStore('chat2es', () => {
   const displayMessages = ref<Array<DisplayMessage>>([]);
   const loading = ref(false);
   const toolStatus = ref('');
-  const apiKey = ref(DEFAULT_SETTINGS.apiKey);
-  const model = ref(DEFAULT_SETTINGS.model);
-  const baseUrl = ref(DEFAULT_SETTINGS.baseUrl);
+  const vizPanels = ref<VizPanel[]>([]);
+  const activeVizId = ref<string>('');
 
-  const configured = computed(() => apiKey.value.length > 0 && baseUrl.value.length > 0);
+  const modelStore = useModelSettingStore();
 
-  async function init() {
-    const wrap = await getFromOneByAsync<Chat2esSettings>(LocalNameEnum.SETTING_CHAT2ES, {...DEFAULT_SETTINGS});
-    apiKey.value = wrap.record.apiKey || DEFAULT_SETTINGS.apiKey;
-    model.value = wrap.record.model || DEFAULT_SETTINGS.model;
-    baseUrl.value = wrap.record.baseUrl || DEFAULT_SETTINGS.baseUrl;
-  }
-
-  async function saveSettings() {
-    await saveOneByAsync(LocalNameEnum.SETTING_CHAT2ES, {
-      apiKey: apiKey.value,
-      model: model.value,
-      baseUrl: baseUrl.value,
-    });
-  }
+  const configured = computed(() => modelStore.configured);
 
   function buildSystemPrompt(): string {
     const urlStore = useUrlStore();
@@ -79,9 +61,51 @@ export const useChat2esStore = defineStore('chat2es', () => {
 5. 如果用户的问题不涉及 ES 操作，正常回答即可`;
   }
 
+  function estimateTokens(text: string): number {
+    return Math.ceil(text.length / CHARS_PER_TOKEN);
+  }
+
+  function buildContextMessages(systemPrompt: string): { messages: ChatMessage[]; truncated: boolean } {
+    const maxTokens = modelStore.activeModel?.maxContextTokens || 32768;
+    const systemMsg: ChatMessage = {role: 'system', content: systemPrompt};
+    const systemTokens = estimateTokens(systemPrompt);
+
+    const candidateMessages: ChatMessage[] = [];
+    for (const dm of displayMessages.value) {
+      if (dm.role === 'user') {
+        candidateMessages.push({role: 'user', content: dm.content});
+      } else if (dm.role === 'assistant') {
+        candidateMessages.push({role: 'assistant', content: dm.content});
+      }
+    }
+
+    // 预留给模型输出的 token 空间
+    const reservedForOutput = Math.min(4096, Math.floor(maxTokens * 0.2));
+    const budget = maxTokens - systemTokens - reservedForOutput;
+
+    if (budget <= 0) {
+      return {messages: [systemMsg, candidateMessages[candidateMessages.length - 1]], truncated: candidateMessages.length > 1};
+    }
+
+    // 从最新消息向前累计，保留尽量多的近期对话
+    let usedTokens = 0;
+    let startIdx = candidateMessages.length;
+    for (let i = candidateMessages.length - 1; i >= 0; i--) {
+      const msgTokens = estimateTokens(candidateMessages[i].content || '');
+      if (usedTokens + msgTokens > budget) break;
+      usedTokens += msgTokens;
+      startIdx = i;
+    }
+
+    const truncated = startIdx > 0;
+    const kept = candidateMessages.slice(startIdx);
+    return {messages: [systemMsg, ...kept], truncated};
+  }
+
   async function send(content: string) {
-    if (!configured.value) {
-      MessageUtil.warning('请先在右侧配置 API Key 和 Base URL');
+    const activeModel = modelStore.activeModel;
+    if (!activeModel) {
+      MessageUtil.warning('请先在 设置 > 模型设置 中配置模型');
       return;
     }
     if (loading.value) return;
@@ -90,15 +114,11 @@ export const useChat2esStore = defineStore('chat2es', () => {
     loading.value = true;
     toolStatus.value = '';
 
-    const apiMessages: ChatMessage[] = [
-      {role: 'system', content: buildSystemPrompt()},
-    ];
-    for (const dm of displayMessages.value) {
-      if (dm.role === 'user') {
-        apiMessages.push({role: 'user', content: dm.content});
-      } else if (dm.role === 'assistant') {
-        apiMessages.push({role: 'assistant', content: dm.content});
-      }
+    const systemPrompt = buildSystemPrompt();
+    const {messages: apiMessages, truncated} = buildContextMessages(systemPrompt);
+
+    if (truncated) {
+      MessageUtil.warning('上下文过长，已自动截断早期对话以适应模型窗口限制');
     }
 
     try {
@@ -106,7 +126,14 @@ export const useChat2esStore = defineStore('chat2es', () => {
 
       while (rounds < MAX_TOOL_ROUNDS) {
         rounds++;
-        const choice = await chatCompletion(baseUrl.value, apiKey.value, model.value, apiMessages, agentTools);
+        const choice = await chatCompletion(
+          activeModel.baseUrl,
+          activeModel.apiKey,
+          activeModel.model,
+          apiMessages,
+          agentTools,
+          modelStore.temperatureValue
+        );
         const msg = choice.message;
 
         if (msg.tool_calls && msg.tool_calls.length > 0) {
@@ -134,6 +161,8 @@ export const useChat2esStore = defineStore('chat2es', () => {
               args: tc.function.arguments,
               result,
             });
+
+            pushVizPanel(tc.function.name, tc.function.arguments, result);
           }
 
           displayMessages.value.push({
@@ -163,20 +192,68 @@ export const useChat2esStore = defineStore('chat2es', () => {
     }
   }
 
+  function pushVizPanel(toolName: string, argsStr: string, result: string) {
+    try {
+      const parsed = JSON.parse(result);
+      let title = toolName;
+      let type: VizPanel['type'] = 'json';
+      let data = parsed;
+
+      try {
+        const args = JSON.parse(argsStr);
+        if (toolName === 'execute_rest' && args.path) {
+          title = `${(args.method || 'GET').toUpperCase()} ${args.path}`;
+        } else if (toolName === 'get_mapping' && args.index) {
+          title = `Mapping: ${args.index}`;
+        } else if (toolName === 'get_index_settings' && args.index) {
+          title = `Settings: ${args.index}`;
+        } else if (toolName === 'get_index_list') {
+          title = '索引列表';
+        } else if (toolName === 'get_cluster_health') {
+          title = '集群健康';
+        } else if (toolName === 'get_cluster_info') {
+          title = '集群信息';
+        }
+      } catch { /* ignore args parse failure */ }
+
+      if (parsed?.hits?.hits && Array.isArray(parsed.hits.hits)) {
+        type = 'table';
+        data = parsed.hits.hits.map((h: any) => ({
+          _index: h._index,
+          _id: h._id,
+          ...h._source,
+          _source: JSON.stringify(h._source || {}, null, 2),
+        }));
+      }
+
+      const panel: VizPanel = {
+        id: `viz_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        title,
+        type,
+        data,
+        timestamp: Date.now(),
+      };
+
+      vizPanels.value.push(panel);
+      activeVizId.value = panel.id;
+    } catch {
+      // result 不是 JSON，跳过可视化
+    }
+  }
+
   function clear() {
     displayMessages.value = [];
+    vizPanels.value = [];
+    activeVizId.value = '';
   }
 
   return {
     displayMessages,
     loading,
     toolStatus,
-    apiKey,
-    model,
-    baseUrl,
     configured,
-    init,
-    saveSettings,
+    vizPanels,
+    activeVizId,
     send,
     clear,
   };
